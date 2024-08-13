@@ -22,7 +22,7 @@ namespace DCLogger.Editor
         private string loggerFolderName = "DCLogger";
         private string channelScriptName = "Channel"; // Default script name
 
-        [MenuItem("Window/DCLogger/DC Logger Window %d, c")]
+        [MenuItem("Window/DCLogger/DC Logger Window %l")]
         public static void ShowWindow()
         {
             GetWindow(typeof(DCLoggerEditor));
