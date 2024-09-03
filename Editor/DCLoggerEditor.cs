@@ -17,6 +17,9 @@ namespace DCLogger.Editor
         private bool hasNameCollision = false;
         private bool hasInvalidName = false;
 
+        private Vector2 _moduleScrollPosition;
+        private Dictionary<string, bool> _moduleFoldouts = new Dictionary<string, bool>();
+
         [MenuItem("Window/DCLogger/DC Logger Window %l")]
         public static void ShowWindow()
         {
@@ -103,7 +106,8 @@ namespace DCLogger.Editor
             GUILayout.Space(10);
 
             GUILayout.Label(new GUIContent("Modules", "Manage logging modules"), EditorStyles.boldLabel);
-
+            _moduleScrollPosition =
+                EditorGUILayout.BeginScrollView(_moduleScrollPosition, GUILayout.ExpandHeight(false));
             hasNameCollision = false;
             hasInvalidName = false;
             HashSet<string> channelNames = new HashSet<string>(); // To track unique channel names
@@ -113,6 +117,8 @@ namespace DCLogger.Editor
             {
                 DrawModuleConfigUI(moduleConfig);
             }
+
+            EditorGUILayout.EndScrollView();
 
             GUILayout.Space(20);
 
@@ -195,36 +201,42 @@ namespace DCLogger.Editor
 
         private void DrawModuleConfigUI(ModuleConfig moduleConfig)
         {
-            bool isReadOnly = IsModuleReadOnly(moduleConfig);
-
-            EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField($"Module: {moduleConfig.ModuleName}", EditorStyles.boldLabel);
-
-            if (isReadOnly)
+            _moduleFoldouts.TryAdd(moduleConfig.ModuleName, false);
+            _moduleFoldouts[moduleConfig.ModuleName] = EditorGUILayout.Foldout(_moduleFoldouts[moduleConfig.ModuleName], moduleConfig.ModuleName);
+            if (_moduleFoldouts[moduleConfig.ModuleName])
             {
-                EditorGUILayout.HelpBox("This module is read-only because it is located in the PackageCache folder.",
-                    MessageType.Info);
+                bool isReadOnly = IsModuleReadOnly(moduleConfig);
+                EditorGUILayout.BeginVertical("box");
+
+                EditorGUILayout.LabelField($"Module: {moduleConfig.ModuleName}", EditorStyles.boldLabel);
+
+                if (isReadOnly)
+                {
+                    EditorGUILayout.HelpBox(
+                        "This module is read-only because it is located in the PackageCache folder.",
+                        MessageType.Info);
+                }
+
+                EditorGUI.BeginDisabledGroup(isReadOnly);
+
+                foreach (var channel in moduleConfig.Channels)
+                {
+                    DrawChannelUI(channel, moduleConfig, isReadOnly);
+                }
+
+                if (!isReadOnly && GUILayout.Button("Add Channel"))
+                {
+                    Undo.RecordObject(moduleConfig, "Add Channel");
+
+                    moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
+                    hasEnumChanges = true; // Set this flag since a new channel has been added
+                    EditorUtility.SetDirty(moduleConfig);
+                }
+
+                EditorGUI.EndDisabledGroup();
+                EditorGUILayout.EndVertical();
+                GUILayout.Space(10);
             }
-
-            EditorGUI.BeginDisabledGroup(isReadOnly);
-
-            foreach (var channel in moduleConfig.Channels)
-            {
-                DrawChannelUI(channel, moduleConfig, isReadOnly);
-            }
-
-            if (!isReadOnly && GUILayout.Button("Add Channel"))
-            {
-                Undo.RecordObject(moduleConfig, "Add Channel");
-
-                moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
-                hasEnumChanges = true; // Set this flag since a new channel has been added
-                EditorUtility.SetDirty(moduleConfig);
-            }
-
-            EditorGUI.EndDisabledGroup();
-            EditorGUILayout.EndVertical();
-            GUILayout.Space(10);
         }
 
         private void DrawChannelUI(Channel channel, ModuleConfig moduleConfig, bool isReadOnly)
@@ -250,6 +262,8 @@ namespace DCLogger.Editor
                 {
                     channel.IsEditing = false;
                     channel.OriginalName = channel.Name;
+                    EditorUtility.SetDirty(moduleConfig);
+                    AssetDatabase.SaveAssets();
                 }
             }
             else
@@ -295,18 +309,19 @@ namespace DCLogger.Editor
                 return;
             }
 
-            string classFullPath = Path.Combine(moduleDirectoryPath, $"{moduleConfig.ModuleName}Channels.cs");
+            const string postfix = "LogChannels";
+            string classFullPath = Path.Combine(moduleDirectoryPath, $"{moduleConfig.ModuleName}{postfix}.cs");
 
             using (StreamWriter file = new StreamWriter(classFullPath))
             {
-                file.WriteLine($"public static class {moduleConfig.ModuleName}Channels");
+                file.WriteLine($"public static class {moduleConfig.ModuleName}{postfix}");
                 file.WriteLine("{");
 
                 foreach (var channel in moduleConfig.Channels)
                 {
                     string constFieldName = GenerateValidConstFieldName(channel.Name);
                     file.WriteLine(
-                        $"    public const string {constFieldName} = \"{channel.Name}\";");
+                        $"    public const string {constFieldName} = \"{channel.Id}\";");
                 }
 
                 file.WriteLine("}");

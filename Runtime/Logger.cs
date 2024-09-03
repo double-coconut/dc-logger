@@ -5,11 +5,11 @@ using UnityEngine;
 
 namespace DCLogger.Runtime
 {
-    public static class DCLogger
+    public static class Logger
     {
         private static readonly Dictionary<string, ChannelInfo> _channelStates = new Dictionary<string, ChannelInfo>();
 
-        static DCLogger()
+        static Logger()
         {
             // Initialize channel states from the active DCLoggerConfig
             InitializeChannelStates();
@@ -31,11 +31,12 @@ namespace DCLogger.Runtime
             {
                 foreach (var channel in moduleConfig.Channels)
                 {
-                    string channelKey = $"{moduleConfig.ModuleName}_{channel.Name}";
+                    string channelKey = channel.Id;
                     if (!_channelStates.ContainsKey(channelKey))
                     {
                         _channelStates[channelKey] = new ChannelInfo
                         {
+                            Name = channel.Name,
                             IsActive = channel.Enabled,
                             Color = ColorUtility.ToHtmlStringRGB(channel.ChannelColor)
                         };
@@ -89,6 +90,11 @@ namespace DCLogger.Runtime
                 }
             }
 
+            if (!activeChannels.Any())
+            {
+                activeChannels.Add($"<color=#{ColorUtility.ToHtmlStringRGB(Color.red)}>[Unspecified]</color>");
+            }
+
             return activeChannels;
         }
 
@@ -108,6 +114,7 @@ namespace DCLogger.Runtime
 
         private class ChannelInfo
         {
+            public string Name;
             public bool IsActive;
             public string Color;
         }

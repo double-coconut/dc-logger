@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace DCLogger.Runtime
@@ -5,6 +6,7 @@ namespace DCLogger.Runtime
     [System.Serializable]
     public class Channel
     {
+        public string Id;
         public string Name;
         public string OriginalName;
         public bool Enabled;
@@ -13,6 +15,7 @@ namespace DCLogger.Runtime
 
         public Channel(string name, Color color)
         {
+            Id = Guid.NewGuid().ToString();
             Name = name;
             OriginalName = name;
             Enabled = true;

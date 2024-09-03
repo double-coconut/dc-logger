@@ -51,9 +51,9 @@ Access the DC Logger editor window from `Window/DCLogger/DC Logger Window` or `C
 Use the `DCLogger` static class to log messages during runtime.
 
 ```csharp
-DCLogger.Log("This is an info message", "ModuleName.ChannelName");
-DCLogger.LogWarning("This is a warning", "ModuleName.ChannelName");
-DCLogger.LogError("This is an error", "ModuleName.ChannelName");
+Logger.Log("This is an info message", "ModuleName.ChannelName");
+Logger.LogWarning("This is a warning", "ModuleName.ChannelName");
+Logger.LogError("This is an error", "ModuleName.ChannelName");
 ```
 
 ### Customizing Channel States
@@ -61,8 +61,8 @@ DCLogger.LogError("This is an error", "ModuleName.ChannelName");
 If you need to enable or disable specific channels during runtime, use:
 
 ```csharp
-DCLogger.SetChannelState("ModuleName.ChannelName", true); // Enable the channel
-DCLogger.SetChannelState("ModuleName.ChannelName", false); // Disable the channel
+Logger.SetChannelState("ModuleName.ChannelName", true); // Enable the channel
+Logger.SetChannelState("ModuleName.ChannelName", false); // Disable the channel
 ```
 
 ## Configuration
