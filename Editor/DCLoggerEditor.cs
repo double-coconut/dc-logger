@@ -43,13 +43,6 @@ namespace DCLogger.Editor
                 AssetDatabase.CreateAsset(loggerConfig, "Assets/Resources/DCLoggerConfig.asset");
                 AssetDatabase.SaveAssets();
             }
-
-            var modulePaths = new List<string>();
-            foreach (var moduleConfig in loggerConfig.moduleConfigs)
-            {
-                string modulePath = AssetDatabase.GetAssetPath(moduleConfig);
-                modulePaths.Add(modulePath);
-            }
         }
 
         private void DetectModuleConfigs()
@@ -196,7 +189,8 @@ namespace DCLogger.Editor
         private bool IsModuleReadOnly(ModuleConfig moduleConfig)
         {
             string modulePath = AssetDatabase.GetAssetPath(moduleConfig);
-            return modulePath.Contains("PackageCache");
+            string moduleFullPath = Path.GetFullPath(modulePath);
+            return moduleFullPath.Contains("PackageCache");
         }
 
         private void DrawModuleConfigUI(ModuleConfig moduleConfig)
