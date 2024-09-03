@@ -396,7 +396,7 @@ namespace DCLogger.Editor
 
         private void CreateNewModule()
         {
-            string path = EditorUtility.SaveFilePanel("Create New Module", Application.dataPath, "NewModuleConfig",
+            string path = EditorUtility.SaveFilePanelInProject("Create New Module", Application.dataPath, "NewModuleConfig",
                 "asset");
             if (!string.IsNullOrEmpty(path))
             {
