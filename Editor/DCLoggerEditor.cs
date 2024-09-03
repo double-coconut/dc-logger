@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using DCLogger.Runtime;
+using DCLogger.Runtime.Configs;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,16 +12,10 @@ namespace DCLogger.Editor
 {
     public class DCLoggerEditor : EditorWindow
     {
-        private const int MaxChannels = 32; // Maximum number of channels for a 32-bit integer enum
         private DCLoggerConfig loggerConfig;
-        private bool isEnumGenerated = false;
-        private bool hasEnumChanges = false; // Separate flag for enum changes
-        private bool hasNameCollision = false; // Flag to track name collisions
-        private bool hasInvalidName = false; // Flag to track invalid channel names
-        private bool showEnumPreview = false; // Flag to toggle enum preview
-        private string enumFilePath = "Assets/Scripts/";
-        private string loggerFolderName = "DCLogger";
-        private string channelScriptName = "Channel"; // Default script name
+        private bool hasEnumChanges = false;
+        private bool hasNameCollision = false;
+        private bool hasInvalidName = false;
 
         [MenuItem("Window/DCLogger/DC Logger Window %l")]
         public static void ShowWindow()
@@ -31,6 +26,7 @@ namespace DCLogger.Editor
         private void OnEnable()
         {
             LoadOrCreateConfig();
+            DetectModuleConfigs();
         }
 
         private void LoadOrCreateConfig()
@@ -47,6 +43,25 @@ namespace DCLogger.Editor
                 AssetDatabase.CreateAsset(loggerConfig, "Assets/Resources/DCLoggerConfig.asset");
                 AssetDatabase.SaveAssets();
             }
+        }
+
+        private void DetectModuleConfigs()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:ModuleConfig", new[] { "Assets", "Packages" });
+            loggerConfig.moduleConfigs.Clear();
+
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                ModuleConfig moduleConfig = AssetDatabase.LoadAssetAtPath<ModuleConfig>(path);
+                if (moduleConfig != null && !loggerConfig.moduleConfigs.Contains(moduleConfig))
+                {
+                    loggerConfig.moduleConfigs.Add(moduleConfig);
+                }
+            }
+
+            EditorUtility.SetDirty(loggerConfig);
+            AssetDatabase.SaveAssets();
         }
 
         private void OnGUI()
@@ -66,197 +81,58 @@ namespace DCLogger.Editor
                 typeof(DCLoggerConfig), false);
             EditorGUI.EndDisabledGroup();
 
-            GUILayout.Space(10);
-
-            // Script name definition
-            EditorGUILayout.LabelField(
-                new GUIContent("Channel Script Name:", "Define the script name for the Channel enum"),
-                EditorStyles.boldLabel);
-            EditorGUI.BeginChangeCheck();
-            channelScriptName = EditorGUILayout.TextField(channelScriptName);
-            if (EditorGUI.EndChangeCheck())
-            {
-                if (!IsValidClassName(channelScriptName))
+            EditorGUILayout.BeginVertical();
+            GUILayout.Label(new GUIContent("DC LOGGER"),new GUIStyle()
                 {
-                    EditorGUILayout.HelpBox("Invalid script name. The script name must be a valid C# class name.",
-                        MessageType.Error);
-                }
+                    fontSize = 80,
+                    alignment = TextAnchor.MiddleCenter,
+                    border = new RectOffset(10,10,10,10),
+                    fontStyle = FontStyle.Bold,
+                }, GUILayout.ExpandWidth(true), GUILayout.MinHeight(50),
+                GUILayout.MaxHeight(100));
+            EditorGUILayout.EndVertical();
+
+            GUILayout.Space(20);
+
+            // Button to create a new module
+            if (GUILayout.Button("Create New Module"))
+            {
+                CreateNewModule();
             }
 
             GUILayout.Space(10);
 
-            GUILayout.Label(new GUIContent("Click to toggle logging channels", "Toggle the channels on or off"),
-                EditorStyles.boldLabel);
+            GUILayout.Label(new GUIContent("Modules", "Manage logging modules"), EditorStyles.boldLabel);
 
             hasNameCollision = false;
             hasInvalidName = false;
             HashSet<string> channelNames = new HashSet<string>(); // To track unique channel names
-            List<int> channelsToRemove = new List<int>(); // Collect indices of channels to remove
 
-            // Display channels
-            for (int i = 0; i < loggerConfig.channels.Count; i++)
+            // Display modules with separation
+            foreach (var moduleConfig in loggerConfig.moduleConfigs)
             {
-                EditorGUILayout.BeginHorizontal();
-
-                loggerConfig.channels[i].Enabled = EditorGUILayout.Toggle(
-                    new GUIContent("", "Enable or disable this channel"), loggerConfig.channels[i].Enabled,
-                    GUILayout.Width(20));
-
-                // Show editable text field if editing, otherwise show a label
-                if (loggerConfig.channels[i].IsEditing)
-                {
-                    EditorGUI.BeginChangeCheck();
-
-                    // Remove the "Name" label and make the TextField expand to full width
-                    string newName =
-                        EditorGUILayout.TextField(loggerConfig.channels[i].Name, GUILayout.ExpandWidth(true));
-
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        Undo.RecordObject(loggerConfig, "Edit Channel Name");
-                        if (newName != loggerConfig.channels[i].OriginalName)
-                        {
-                            hasEnumChanges = true;
-                        }
-
-                        loggerConfig.channels[i].Name = newName;
-                    }
-
-                    // Allow color selection when editing
-                    loggerConfig.channels[i].ChannelColor = EditorGUILayout.ColorField(
-                        new GUIContent("", "The color associated with this channel"),
-                        loggerConfig.channels[i].ChannelColor, GUILayout.Width(50));
-
-                    // Allow log type selection when editing
-                    loggerConfig.channels[i].LogType = (DCLoggerConfig.LoggingType) EditorGUILayout.EnumPopup(
-                        new GUIContent("", "The type of log this channel represents"), loggerConfig.channels[i].LogType,
-                        GUILayout.Width(80));
-                }
-                else
-                {
-                    // Display the channel name, color, and log type icon (non-interactive)
-                    EditorGUILayout.LabelField(loggerConfig.channels[i].Name, GUILayout.ExpandWidth(true));
-                    EditorGUI.DrawRect(GUILayoutUtility.GetRect(50, 18), loggerConfig.channels[i].ChannelColor);
-
-                    // Display the appropriate icon for the logging type
-                    GUIContent iconContent = GetLogTypeIcon(loggerConfig.channels[i].LogType);
-                    GUILayout.Label(iconContent, GUILayout.Width(20), GUILayout.Height(20));
-                }
-
-                if (GUILayout.Button(loggerConfig.channels[i].IsEditing ? "Save" : "Edit", GUILayout.Width(50)))
-                {
-                    Undo.RecordObject(loggerConfig,
-                        loggerConfig.channels[i].IsEditing ? "Save Channel" : "Edit Channel");
-                    if (loggerConfig.channels[i].IsEditing)
-                    {
-                        if (loggerConfig.channels[i].Name != loggerConfig.channels[i].OriginalName)
-                        {
-                            loggerConfig.channels[i].OriginalName =
-                                loggerConfig.channels[i].Name; // Update the original name
-                            hasEnumChanges = true;
-                        }
-                    }
-
-                    loggerConfig.channels[i].IsEditing = !loggerConfig.channels[i].IsEditing;
-                }
-
-                if (GUILayout.Button(new GUIContent("Clone", "Clone this channel"), GUILayout.Width(60)))
-                {
-                    Undo.RecordObject(loggerConfig, "Clone Channel");
-                    CloneChannel(i);
-                    hasEnumChanges = true;
-                }
-
-                if (GUILayout.Button(new GUIContent("Remove", "Remove this channel"), GUILayout.Width(60)))
-                {
-                    Undo.RecordObject(loggerConfig, "Remove Channel");
-                    channelsToRemove.Add(i); // Defer removal until after the loop
-                }
-
-                EditorGUILayout.EndHorizontal();
-
-                // Validate the channel name
-                if (channelNames.Contains(loggerConfig.channels[i].Name))
-                {
-                    hasNameCollision = true;
-                    EditorGUILayout.HelpBox("Channel name must be unique.", MessageType.Error);
-                }
-                else
-                {
-                    channelNames.Add(loggerConfig.channels[i].Name);
-                }
-
-                if (!IsValidChannelName(loggerConfig.channels[i].Name))
-                {
-                    hasInvalidName = true;
-                    EditorGUILayout.HelpBox(
-                        "Channel name cannot start with a number and should only contain letters, digits, or underscores.",
-                        MessageType.Error);
-                }
+                DrawModuleConfigUI(moduleConfig);
             }
 
-            // Remove channels after the loop to avoid modifying the list during iteration
-            foreach (int index in channelsToRemove)
-            {
-                loggerConfig.channels.RemoveAt(index);
-            }
+            GUILayout.Space(20);
 
-            GUILayout.Space(10);
-
-            // Display message if max channels are reached
-            if (loggerConfig.channels.Count >= MaxChannels)
-            {
-                EditorGUILayout.HelpBox(
-                    $"Maximum number of channels ({MaxChannels}) reached. Cannot add more channels.",
-                    MessageType.Warning);
-            }
-
-            // Add new channel button (disabled if max channels are reached)
-            GUI.enabled = loggerConfig.channels.Count < MaxChannels;
-            if (GUILayout.Button(new GUIContent("Add Channel", "Add a new logging channel")))
-            {
-                Undo.RecordObject(loggerConfig, "Add Channel");
-                loggerConfig.channels.Add(new DCLoggerConfig.Channel("New Channel", Color.white,
-                    DCLoggerConfig.LoggingType.Log));
-                hasEnumChanges = true;
-            }
-
-            GUI.enabled = true;
-
-            GUILayout.Space(10);
-
-            // Folder selection for enum generation
+            // Folder selection for class generation
             EditorGUILayout.LabelField(
-                new GUIContent("Enum File Path:", "Select the folder where the enum file will be generated"),
+                new GUIContent("Class File Path:",
+                    "The classes will be generated in the same directory as the ModuleConfig files."),
                 EditorStyles.boldLabel);
-            EditorGUILayout.BeginHorizontal();
-            enumFilePath = EditorGUILayout.TextField(enumFilePath);
-            if (GUILayout.Button(new GUIContent("Select Folder", "Choose the folder for the enum file")))
-            {
-                string selectedPath = EditorUtility.OpenFolderPanel("Select Folder for Enum", "Assets/", "");
-                if (!string.IsNullOrEmpty(selectedPath))
+
+            // Re-evaluate whether the Generate button should be enabled
+            bool canGenerate = hasEnumChanges && !hasNameCollision && !hasInvalidName;
+
+            GUI.enabled = canGenerate;
+
+            if (GUILayout.Button(new GUIContent("GENERATE", "Generate the static classes for each module"),new GUILayoutOption[]
                 {
-                    enumFilePath = "Assets" + selectedPath.Replace(Application.dataPath, "");
-                }
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            // Enum preview toggle
-            showEnumPreview = EditorGUILayout.Foldout(showEnumPreview,
-                new GUIContent("Enum Preview", "Preview the generated enum code"));
-            if (showEnumPreview)
+                    GUILayout.Height(50)
+                }))
             {
-                EditorGUILayout.HelpBox(GenerateEnumPreview(), MessageType.None);
-            }
-
-            // Generate enum code only if enum changes exist, no name collisions, and no invalid names
-            GUI.enabled = hasEnumChanges && !hasNameCollision && !hasInvalidName && IsValidClassName(channelScriptName);
-            
-            if (GUILayout.Button(new GUIContent("Generate", "Generate the enum based on the current channels")))
-            {
-                GenerateEnumAndLoggerClasses();
-                hasEnumChanges = false;
+                GenerateStaticClassesForAllModules();
             }
 
             GUI.enabled = true;
@@ -265,6 +141,7 @@ namespace DCLogger.Editor
 
             // Preprocessor section for enabling/disabling logging
             GUILayout.Label("Logging Configuration", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
             bool isLoggingEnabled = IsLoggingEnabled();
             GUI.enabled = !isLoggingEnabled;
             if (GUILayout.Button(new GUIContent("Enable Logging",
@@ -279,7 +156,7 @@ namespace DCLogger.Editor
             {
                 SetLoggingEnabled(false);
             }
-
+            EditorGUILayout.EndHorizontal();
             GUI.enabled = true;
 
             // Clear all and Select all section at the bottom
@@ -287,9 +164,9 @@ namespace DCLogger.Editor
             GUILayout.Label(new GUIContent("Bulk Actions", "Actions that apply to all channels"),
                 EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button(new GUIContent("Clear all", "Disable all channels")))
+            if (GUILayout.Button(new GUIContent("Deselect all", "Disable all channels")))
             {
-                Undo.RecordObject(loggerConfig, "Clear All Channels");
+                Undo.RecordObject(loggerConfig, "Deselect All Channels");
                 SetAllChannels(false);
             }
 
@@ -309,169 +186,153 @@ namespace DCLogger.Editor
             }
         }
 
-        private void CloneChannel(int index)
+        private bool IsModuleReadOnly(ModuleConfig moduleConfig)
         {
-            DCLoggerConfig.Channel originalChannel = loggerConfig.channels[index];
-            string newChannelName = originalChannel.Name + "_Copy";
+            string modulePath = AssetDatabase.GetAssetPath(moduleConfig);
+            return modulePath.Contains("PackageCache");
+        }
 
-            // Ensure the new name is unique
-            int copyIndex = 1;
-            while (loggerConfig.channels.Exists(channel => channel.Name == newChannelName))
+        private void DrawModuleConfigUI(ModuleConfig moduleConfig)
+        {
+            bool isReadOnly = IsModuleReadOnly(moduleConfig);
+
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField($"Module: {moduleConfig.ModuleName}", EditorStyles.boldLabel);
+
+            if (isReadOnly)
             {
-                newChannelName = originalChannel.Name + $"_Copy{copyIndex}";
-                copyIndex++;
+                EditorGUILayout.HelpBox("This module is read-only because it is located in the PackageCache folder.",
+                    MessageType.Info);
             }
 
-            DCLoggerConfig.Channel newChannel = new DCLoggerConfig.Channel(newChannelName, originalChannel.ChannelColor,
-                originalChannel.LogType);
-            loggerConfig.channels.Insert(index + 1, newChannel); // Insert the cloned channel right after the original
-        }
+            EditorGUI.BeginDisabledGroup(isReadOnly);
 
-
-        private bool IsValidClassName(string name)
-        {
-            // A valid C# class name must start with a letter or underscore and contain only letters, digits, or underscores
-            return Regex.IsMatch(name, @"^[a-zA-Z_][a-zA-Z0-9_]*$");
-        }
-
-        private string GenerateEnumPreview()
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine("public enum " + channelScriptName);
-            sb.AppendLine("{");
-            for (int i = 0; i < loggerConfig.channels.Count; i++)
+            foreach (var channel in moduleConfig.Channels)
             {
-                string enumValue = GenerateValidEnumName(loggerConfig.channels[i].Name);
-                sb.AppendLine($"    {enumValue} = 1 << {i},");
+                DrawChannelUI(channel, moduleConfig, isReadOnly);
             }
 
-            sb.AppendLine("}");
-            return sb.ToString();
-        }
-
-        private string GenerateValidEnumName(string name)
-        {
-            // Replace spaces with underscores
-            return name.Replace(" ", "_");
-        }
-
-        private void GenerateEnumAndLoggerClasses()
-        {
-            string directoryPath = Path.Combine(enumFilePath, loggerFolderName);
-            if (!Directory.Exists(directoryPath))
+            if (!isReadOnly && GUILayout.Button("Add Channel"))
             {
-                Directory.CreateDirectory(directoryPath);
+                Undo.RecordObject(moduleConfig, "Add Channel");
+
+                moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
+                hasEnumChanges = true; // Set this flag since a new channel has been added
+                EditorUtility.SetDirty(moduleConfig);
             }
 
-            string enumFullPath = Path.Combine(directoryPath, channelScriptName + ".cs");
-            string loggerFullPath = Path.Combine(directoryPath, "Logger.cs");
+            EditorGUI.EndDisabledGroup();
+            EditorGUILayout.EndVertical();
+            GUILayout.Space(10);
+        }
 
-            // Define the namespace name
-            string namespaceName = "DCLogger.Game"; // Replace with your desired namespace
+        private void DrawChannelUI(Channel channel, ModuleConfig moduleConfig, bool isReadOnly)
+        {
+            EditorGUILayout.BeginHorizontal();
 
-            // Generate the enum with a namespace
-            using (StreamWriter file = new StreamWriter(enumFullPath))
+            EditorGUI.BeginDisabledGroup(isReadOnly);
+
+            channel.Enabled = EditorGUILayout.Toggle(channel.Enabled, GUILayout.Width(20));
+
+            if (channel.IsEditing && !isReadOnly)
             {
-                file.WriteLine("using System;");
-                file.WriteLine();
-                file.WriteLine($"namespace {namespaceName}");
-                file.WriteLine("{");
-                file.WriteLine("    [Flags]");
-                file.WriteLine($"    public enum {channelScriptName}");
-                file.WriteLine("    {");
+                string oldName = channel.Name;
+                channel.Name = EditorGUILayout.TextField(channel.Name);
+                channel.ChannelColor = EditorGUILayout.ColorField(channel.ChannelColor, GUILayout.Width(50));
 
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < loggerConfig.channels.Count; i++)
+                if (oldName != channel.Name)
                 {
-                    string enumValue = GenerateValidEnumName(loggerConfig.channels[i].Name);
-                    sb.AppendLine($"        {enumValue} = 1 << {i},");
+                    hasEnumChanges = true; // Set this flag since the name has changed
                 }
 
-                file.Write(sb.ToString());
-
-                file.WriteLine("    }");
-                file.WriteLine("}");
+                if (GUILayout.Button("Save", GUILayout.Width(50)))
+                {
+                    channel.IsEditing = false;
+                    channel.OriginalName = channel.Name;
+                }
             }
-
-            // Generate the non-generic DCLogger class with a namespace
-            using (StreamWriter file = new StreamWriter(loggerFullPath))
+            else
             {
-                file.WriteLine("using DCLogger.Runtime;");
-                file.WriteLine();
-                file.WriteLine($"namespace {namespaceName}");
-                file.WriteLine("{");
-                file.WriteLine("    public static class Logger");
-                file.WriteLine("    {");
+                EditorGUILayout.LabelField(channel.Name, GUILayout.ExpandWidth(true));
+                EditorGUI.DrawRect(GUILayoutUtility.GetRect(50, 18), channel.ChannelColor);
 
-                file.WriteLine($"        public static void Log(string message, {channelScriptName} channels)");
-                file.WriteLine("        {");
-                file.WriteLine($"            DCLoggerInternal<{channelScriptName}>.Log(message, channels);");
-                file.WriteLine("        }");
-
-                file.WriteLine("    }");
-                file.WriteLine("}");
+                if (!isReadOnly && GUILayout.Button("Edit", GUILayout.Width(50)))
+                {
+                    channel.IsEditing = true;
+                }
             }
 
-            GenerateAsmDefFile(namespaceName);
+            if (!isReadOnly && GUILayout.Button("Remove", GUILayout.Width(60)))
+            {
+                moduleConfig.Channels.Remove(channel);
+                hasEnumChanges = true; // Set this flag since a channel has been removed
+                return; // Exit loop since we're modifying the collection
+            }
+
+            EditorGUI.EndDisabledGroup();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private string GenerateValidConstFieldName(string name)
+        {
+            // Replace spaces and invalid characters with underscores
+            return Regex.Replace(name, @"[^a-zA-Z0-9_]", "_");
+        }
+
+        private void GenerateStaticClassForModule(ModuleConfig moduleConfig)
+        {
+            if (IsModuleReadOnly(moduleConfig))
+            {
+                Debug.LogWarning($"Skipping static class generation for read-only module: {moduleConfig.ModuleName}");
+                return;
+            }
+
+            string moduleDirectoryPath = Path.GetDirectoryName(AssetDatabase.GetAssetPath(moduleConfig));
+            if (string.IsNullOrEmpty(moduleDirectoryPath))
+            {
+                Debug.LogError($"Could not determine the path for the ModuleConfig: {moduleConfig.ModuleName}");
+                return;
+            }
+
+            string classFullPath = Path.Combine(moduleDirectoryPath, $"{moduleConfig.ModuleName}Channels.cs");
+
+            using (StreamWriter file = new StreamWriter(classFullPath))
+            {
+                file.WriteLine($"public static class {moduleConfig.ModuleName}Channels");
+                file.WriteLine("{");
+
+                foreach (var channel in moduleConfig.Channels)
+                {
+                    string constFieldName = GenerateValidConstFieldName(channel.Name);
+                    file.WriteLine(
+                        $"    public const string {constFieldName} = \"{channel.Name}\";");
+                }
+
+                file.WriteLine("}");
+            }
 
             AssetDatabase.Refresh();
-            isEnumGenerated = true;
+        }
+
+
+        private void GenerateStaticClassesForAllModules()
+        {
+            foreach (var moduleConfig in loggerConfig.moduleConfigs)
+            {
+                GenerateStaticClassForModule(moduleConfig);
+            }
+
             hasEnumChanges = false;
-        }
-
-        private void GenerateAsmDefFile(string @namespace)
-        {
-            var assemblyName = Assembly.GetAssembly(typeof(DCLoggerInternal<>)).GetName().Name;
-            string asmdefFilePath = Path.Combine(enumFilePath, loggerFolderName, $"{@namespace}.asmdef");
-            using (StreamWriter file = new StreamWriter(asmdefFilePath))
-            {
-                file.WriteLine("{");
-                file.WriteLine($"    \"name\": \"{@namespace}\",");
-                file.WriteLine("    \"references\": [");
-                file.WriteLine($"        \"{assemblyName}\""); // Add your known reference here
-                file.WriteLine("    ],");
-                file.WriteLine("    \"includePlatforms\": [],");
-                file.WriteLine("    \"excludePlatforms\": [],");
-                file.WriteLine("    \"allowUnsafeCode\": false,");
-                file.WriteLine("    \"overrideReferences\": false,");
-                file.WriteLine("    \"precompiledReferences\": [],");
-                file.WriteLine("    \"autoReferenced\": true,");
-                file.WriteLine("    \"defineConstraints\": [],");
-                file.WriteLine("    \"versionDefines\": [],");
-                file.WriteLine("    \"noEngineReferences\": false");
-                file.WriteLine("}");
-            }
-
-            AssetDatabase.Refresh();
-        }
-
-        private bool IsValidChannelName(string name)
-        {
-            // Check if the name starts with a letter and contains only letters, digits, and underscores
-            return Regex.IsMatch(name, @"^[a-zA-Z_][a-zA-Z0-9_]*$");
         }
 
         private void SetAllChannels(bool enabled)
         {
-            foreach (var channel in loggerConfig.channels)
+            foreach (var moduleConfig in loggerConfig.moduleConfigs)
             {
-                channel.Enabled = enabled;
-            }
-            // This change doesn't affect the enum, so we don't set hasEnumChanges to true
-        }
-
-        private GUIContent GetLogTypeIcon(DCLoggerConfig.LoggingType logType)
-        {
-            switch (logType)
-            {
-                case DCLoggerConfig.LoggingType.Log:
-                    return EditorGUIUtility.IconContent("console.infoicon");
-                case DCLoggerConfig.LoggingType.Warning:
-                    return EditorGUIUtility.IconContent("console.warnicon");
-                case DCLoggerConfig.LoggingType.Error:
-                    return EditorGUIUtility.IconContent("console.erroricon");
-                default:
-                    return EditorGUIUtility.IconContent("console.infoicon");
+                foreach (var channel in moduleConfig.Channels)
+                {
+                    channel.Enabled = enabled;
+                }
             }
         }
 
@@ -525,10 +386,29 @@ namespace DCLogger.Editor
             if (GUILayout.Button("Reload", GUILayout.Width(100), GUILayout.Height(30)))
             {
                 LoadOrCreateConfig();
+                DetectModuleConfigs(); // Ensure we detect module configs again
             }
 
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+        }
+
+        private void CreateNewModule()
+        {
+            string path = EditorUtility.SaveFilePanel("Create New Module", Application.dataPath, "NewModuleConfig",
+                "asset");
+            if (!string.IsNullOrEmpty(path))
+            {
+                ModuleConfig newModule = CreateInstance<ModuleConfig>();
+                newModule.ModuleName = Path.GetFileNameWithoutExtension(path);
+                AssetDatabase.CreateAsset(newModule, path);
+                AssetDatabase.SaveAssets();
+
+                // Add the new module to the logger config
+                loggerConfig.moduleConfigs.Add(newModule);
+                EditorUtility.SetDirty(loggerConfig);
+                AssetDatabase.SaveAssets();
+            }
         }
     }
 }

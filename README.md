@@ -1,81 +1,92 @@
-# DCLogger - Runtime Usage
+# DC Logger
 
-DCLogger is a flexible and customizable logging system for Unity, designed to help developers categorize and manage log messages across different channels.
+DC Logger is a Unity plugin designed to provide an organized logging mechanism, which allows developers to categorize and control log outputs using different channels. This plugin consists of both editor and runtime components, enabling easy management and usage of log channels within your Unity project.
+
+## Features
+
+- **Dynamic Channel Management:** Create, edit, and remove logging channels through the editor.
+- **Modular Configuration:** Easily configure modules to have their own set of channels.
+- **Static Class Generation:** Automatically generate static classes for easy access to channels.
+- **Enable/Disable Logging:** Control logging globally using preprocessor symbols.
+- **Color-coded Logs:** Log messages with custom color coding for better visibility.
 
 ## Installation
 
 1. Import the DCLogger package into your Unity project.
-```bash
-git@github.com:double-coconut/dc-logger.git
+```bash  
+git@github.com:double-coconut/dc-logger.git  
 ```
-2. Ensure that the `DCLoggerConfig` ScriptableObject is set up in the `Resources` folder.
-(automatically generated when the window is first opened)
+2. The main configuration asset will be created automatically under `Assets/Resources/DCLoggerConfig.asset` on first use.
 
 ## Usage
 
-To log messages with DCLogger, use the `DCLogger.Log` method, specifying the message and the channel(s) you want to log to.
+### Editor Window
 
-### Example:
+Access the DC Logger editor window from `Window/DCLogger/DC Logger Window` or `CMD + L or Ctrl + L`. This window allows you to manage your logging modules and channels.
+
+#### Creating a New Module
+
+- Click on the `Create New Module` button to generate a new logging module.
+- A save dialog will appear; select the location where you want to save your module.
+- The new module will automatically appear in the list.
+
+#### Managing Channels
+
+- Each module can have multiple channels.
+- You can add new channels by clicking the `Add Channel` button within a module.
+- Channels can be edited (name, color) or removed.
+- Generated static classes are updated automatically when you modify the channels.
+
+#### Generating Static Classes
+
+- After making changes to channels, the `GENERATE` button will be enabled.
+- Click on `GENERATE` to produce static classes that provide constant strings for each channel name, simplifying usage in the runtime.
+
+#### Enabling/Disabling Logging
+
+- Toggle logging on or off using the `Enable Logging` and `Disable Logging` buttons. These control the `DC_LOGGING` preprocessor symbol.
+
+### Runtime Logging
+
+Use the `DCLogger` static class to log messages during runtime.
 
 ```csharp
-// Assuming you have a DCLogger with a MyChannels enum
-DCLogger.Log("Game started", MyChannels.Gameplay | MyChannels.Debug);
+DCLogger.Log("This is an info message", "ModuleName.ChannelName");
+DCLogger.LogWarning("This is a warning", "ModuleName.ChannelName");
+DCLogger.LogError("This is an error", "ModuleName.ChannelName");
 ```
 
-### Output:
+### Customizing Channel States
 
-```
-[Gameplay], [Debug]: Game started
-```
-
-- Each channel name is displayed in its respective color.
-- The log message is only logged if at least one of the specified channels is enabled.
-
-### Combining Channels:
-
-You can combine multiple channels using the bitwise OR (`|`) operator:
+If you need to enable or disable specific channels during runtime, use:
 
 ```csharp
-DCLogger.Log("Player connected", MyChannels.Network | MyChannels.Debug);
+DCLogger.SetChannelState("ModuleName.ChannelName", true); // Enable the channel
+DCLogger.SetChannelState("ModuleName.ChannelName", false); // Disable the channel
 ```
 
-# DCLogger - Editor Configuration
+## Configuration
 
-## Setting Up DCLogger in the Unity Editor
+The logger configuration is stored in the `DCLoggerConfig` asset under `Resources`. Each module configuration is stored as a `ModuleConfig` asset.
 
-DCLogger includes powerful editor tools that allow you to configure and manage logging channels easily. Below are the steps to set up and configure the editor:
+### Creating a Module Config
 
-## Configuration Steps:
+If you need to create a module manually:
 
-1. **Open the Logger Configuration Window:**
-   - Navigate to `Window > DCLogger > DC Logger Window (Ctrl + L)` in the Unity menu to open the configuration window.
+1. Go to `Assets` -> `Create` -> `DCLogger` -> `ModuleConfig`.
+2. Name your module.
+3. The new module will automatically be detected by the logger.
 
-2. **Creating and Managing Channels:**
-   - Use the `Add Channel` button to create new logging channels.
-   - Each channel can be assigned a unique name, color, and log type (Log, Warning, Error).
-   - Channels can be enabled or disabled based on your logging needs.
+### Channel Name Rules
 
-3. **Saving and Generating Enum:**
-   - After configuring your channels, click the `Generate` button.
-   - This will generate an enum representing your channels and a logger class for runtime usage.
+- Channel names must be unique within a module.
+- Valid channel names contain only alphanumeric characters and underscores.
 
-4. **Bulk Actions:**
-   - Use `Clear all` to disable all channels.
-   - Use `Select all` to enable all channels.
+## License
 
-5. **Preprocessor Control:**
-   - Easily enable or disable logging at compile time using preprocessor directives in the Logger Configuration Window.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Best Practices:
+## Contributing
 
-- Regularly update and manage your logging channels to keep your logs organized.
-- Use channel colors to visually distinguish between different log types.
+Feel free to submit issues or pull requests. Any contributions are welcome!
 
-
-### Channel Colors:
-
-Each channel can be assigned a unique color in the `DCLoggerConfig`. When combining channels, each channel's name will appear in its assigned color in the logs.
-
-## Summary
-
-DCLogger provides an organized and visually distinct logging system, making it easier to filter and manage logs across different parts of your Unity project.
