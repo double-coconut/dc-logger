@@ -43,6 +43,13 @@ namespace DCLogger.Editor
                 AssetDatabase.CreateAsset(loggerConfig, "Assets/Resources/DCLoggerConfig.asset");
                 AssetDatabase.SaveAssets();
             }
+
+            var modulePaths = new List<string>();
+            foreach (var moduleConfig in loggerConfig.moduleConfigs)
+            {
+                string modulePath = AssetDatabase.GetAssetPath(moduleConfig);
+                modulePaths.Add(modulePath);
+            }
         }
 
         private void DetectModuleConfigs()
