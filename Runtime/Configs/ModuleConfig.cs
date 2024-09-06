@@ -9,9 +9,11 @@ namespace DCLogger.Runtime.Configs
         public string ModuleName;
         public List<Channel> Channels = new List<Channel>();
 
-        public void AddChannel(string channelName, Color color)
+        public Channel AddChannel(string channelName, Color color)
         {
-            Channels.Add(new Channel(channelName, color));
+            var channel = new Channel(channelName, color);
+            Channels.Add(channel);
+            return channel;
         }
     }
 }

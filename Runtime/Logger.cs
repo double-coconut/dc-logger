@@ -37,7 +37,7 @@ namespace DCLogger.Runtime
                         _channelStates[channelKey] = new ChannelInfo
                         {
                             Name = channel.Name,
-                            IsActive = channel.Enabled,
+                            IsActive = loggerConfig.GetChannelState(moduleConfig.ModuleName, channelKey) ?? true,
                             Color = ColorUtility.ToHtmlStringRGB(channel.ChannelColor)
                         };
                     }

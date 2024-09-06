@@ -3,13 +3,12 @@ using UnityEngine;
 
 namespace DCLogger.Runtime
 {
-    [System.Serializable]
+    [Serializable]
     public class Channel
     {
         public string Id;
         public string Name;
         public string OriginalName;
-        public bool Enabled;
         public bool IsEditing;
         public Color ChannelColor;
 
@@ -18,9 +17,21 @@ namespace DCLogger.Runtime
             Id = Guid.NewGuid().ToString();
             Name = name;
             OriginalName = name;
-            Enabled = true;
             IsEditing = false;
             ChannelColor = color;
+        }
+    }
+
+    [Serializable]
+    public class ChannelState
+    {
+        public string Id;
+        public bool Enabled;
+
+        public ChannelState(string id, bool state)
+        {
+            Id = id;
+            Enabled = state;
         }
     }
 }

@@ -60,6 +60,14 @@ namespace DCLogger.Editor
                 if (moduleConfig != null && !loggerConfig.moduleConfigs.Contains(moduleConfig))
                 {
                     loggerConfig.moduleConfigs.Add(moduleConfig);
+                    foreach (Channel channel in moduleConfig.Channels)
+                    {
+                        var state = loggerConfig.GetChannelState(moduleConfig.ModuleName, channel.Id);
+                        if (state == null)
+                        {
+                            loggerConfig.SetChannelState(moduleConfig.ModuleName, channel.Id, true);
+                        }
+                    }
                 }
             }
 
@@ -238,9 +246,11 @@ namespace DCLogger.Editor
                 {
                     Undo.RecordObject(moduleConfig, "Add Channel");
 
-                    moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
+                    Channel newChannel=moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
+                    loggerConfig.SetChannelState(moduleConfig.ModuleName, newChannel.Id, true);
                     hasEnumChanges = true; // Set this flag since a new channel has been added
                     EditorUtility.SetDirty(moduleConfig);
+                    EditorUtility.SetDirty(loggerConfig);
                     AssetDatabase.SaveAssetIfDirty(moduleConfig);
                 }
 
@@ -254,10 +264,12 @@ namespace DCLogger.Editor
         {
             EditorGUILayout.BeginHorizontal();
 
+            var enabled =
+                EditorGUILayout.Toggle(loggerConfig.GetChannelState(moduleConfig.ModuleName, channel.Id) ?? true,
+                    GUILayout.Width(20));
+            loggerConfig.SetChannelState(moduleConfig.ModuleName, channel.Id, enabled);
+
             EditorGUI.BeginDisabledGroup(isReadOnly);
-
-            channel.Enabled = EditorGUILayout.Toggle(channel.Enabled, GUILayout.Width(20));
-
             if (channel.IsEditing && !isReadOnly)
             {
                 string oldName = channel.Name;
@@ -292,6 +304,7 @@ namespace DCLogger.Editor
             if (!isReadOnly && GUILayout.Button("Remove", GUILayout.Width(60)))
             {
                 moduleConfig.Channels.Remove(channel);
+                loggerConfig.RemoveChannel(moduleConfig.ModuleName, channel.Id);
                 hasEnumChanges = true; // Set this flag since a channel has been removed
                 EditorUtility.SetDirty(moduleConfig);
                 EditorUtility.SetDirty(loggerConfig);
@@ -362,7 +375,7 @@ namespace DCLogger.Editor
             {
                 foreach (var channel in moduleConfig.Channels)
                 {
-                    channel.Enabled = enabled;
+                    loggerConfig.SetChannelState(moduleConfig.ModuleName, channel.Id, enabled);
                 }
             }
         }
