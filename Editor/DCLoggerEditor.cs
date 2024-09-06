@@ -235,13 +235,13 @@ namespace DCLogger.Editor
                         MessageType.Info);
                 }
 
-                EditorGUI.BeginDisabledGroup(isReadOnly);
 
                 foreach (var channel in moduleConfig.Channels)
                 {
                     DrawChannelUI(channel, moduleConfig, isReadOnly);
                 }
 
+                EditorGUI.BeginDisabledGroup(isReadOnly);
                 if (!isReadOnly && GUILayout.Button("Add Channel"))
                 {
                     Undo.RecordObject(moduleConfig, "Add Channel");
@@ -269,7 +269,7 @@ namespace DCLogger.Editor
                     GUILayout.Width(20));
             loggerConfig.SetChannelState(moduleConfig.ModuleName, channel.Id, enabled);
 
-            EditorGUI.BeginDisabledGroup(isReadOnly);
+            
             if (channel.IsEditing && !isReadOnly)
             {
                 string oldName = channel.Name;
@@ -294,13 +294,14 @@ namespace DCLogger.Editor
             {
                 EditorGUILayout.LabelField(channel.Name, GUILayout.ExpandWidth(true));
                 EditorGUI.DrawRect(GUILayoutUtility.GetRect(50, 18), channel.ChannelColor);
-
+                EditorGUI.BeginDisabledGroup(isReadOnly);
                 if (!isReadOnly && GUILayout.Button("Edit", GUILayout.Width(50)))
                 {
                     channel.IsEditing = true;
                 }
+                EditorGUI.EndDisabledGroup();
             }
-
+            EditorGUI.BeginDisabledGroup(isReadOnly);
             if (!isReadOnly && GUILayout.Button("Remove", GUILayout.Width(60)))
             {
                 moduleConfig.Channels.Remove(channel);
