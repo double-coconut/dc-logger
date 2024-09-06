@@ -1,7 +1,7 @@
 {
   "name": "com.doublecoconut.dclogger",
   "displayName": "DCLogger",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "unity": "2022.3",
   "keywords": ["logger"],
   "description": "DCLogger is a flexible and customizable logging system for Unity, designed to help developers categorize and manage log messages across different channels. With DCLogger, you can easily define log channels, enable or disable them, and format log output with custom colors.",

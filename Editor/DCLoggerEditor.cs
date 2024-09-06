@@ -138,6 +138,12 @@ namespace DCLogger.Editor
                     GUILayout.Height(50)
                 }))
             {
+                foreach (var moduleConfig in loggerConfig.moduleConfigs)
+                {
+                    EditorUtility.SetDirty(moduleConfig);
+                }
+                EditorUtility.SetDirty(loggerConfig);
+                AssetDatabase.SaveAssets();
                 GenerateStaticClassesForAllModules();
             }
 
@@ -187,6 +193,10 @@ namespace DCLogger.Editor
             // Save the config if changes were made
             if (GUI.changed)
             {
+                foreach (var moduleConfig in loggerConfig.moduleConfigs)
+                {
+                    EditorUtility.SetDirty(moduleConfig);
+                }
                 EditorUtility.SetDirty(loggerConfig);
                 AssetDatabase.SaveAssets();
             }
@@ -231,6 +241,7 @@ namespace DCLogger.Editor
                     moduleConfig.AddChannel("New Channel", Color.white); // Use the new method to add a channel
                     hasEnumChanges = true; // Set this flag since a new channel has been added
                     EditorUtility.SetDirty(moduleConfig);
+                    AssetDatabase.SaveAssetIfDirty(moduleConfig);
                 }
 
                 EditorGUI.EndDisabledGroup();
@@ -263,6 +274,7 @@ namespace DCLogger.Editor
                     channel.IsEditing = false;
                     channel.OriginalName = channel.Name;
                     EditorUtility.SetDirty(moduleConfig);
+                    EditorUtility.SetDirty(loggerConfig);
                     AssetDatabase.SaveAssets();
                 }
             }
@@ -281,6 +293,9 @@ namespace DCLogger.Editor
             {
                 moduleConfig.Channels.Remove(channel);
                 hasEnumChanges = true; // Set this flag since a channel has been removed
+                EditorUtility.SetDirty(moduleConfig);
+                EditorUtility.SetDirty(loggerConfig);
+                AssetDatabase.SaveAssets();
                 return; // Exit loop since we're modifying the collection
             }
 
