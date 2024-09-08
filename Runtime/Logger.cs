@@ -7,7 +7,7 @@ namespace DCLogger.Runtime
 {
     public static class Logger
     {
-        private static readonly Dictionary<string, ChannelInfo> _channelStates = new Dictionary<string, ChannelInfo>();
+        private static readonly Dictionary<string, ChannelInfo> _channelInfo = new Dictionary<string, ChannelInfo>();
 
         static Logger()
         {
@@ -32,10 +32,11 @@ namespace DCLogger.Runtime
                 foreach (var channel in moduleConfig.Channels)
                 {
                     string channelKey = channel.Id;
-                    if (!_channelStates.ContainsKey(channelKey))
+                    if (!_channelInfo.ContainsKey(channelKey))
                     {
-                        _channelStates[channelKey] = new ChannelInfo
+                        _channelInfo[channelKey] = new ChannelInfo
                         {
+                            ModuleName = moduleConfig.ModuleName,
                             Name = channel.Name,
                             IsActive = loggerConfig.GetChannelState(moduleConfig.ModuleName, channelKey) ?? true,
                             Color = ColorUtility.ToHtmlStringRGB(channel.ChannelColor)
@@ -78,42 +79,48 @@ namespace DCLogger.Runtime
             }
         }
 
-        private static List<string> GetActiveChannels(params string[] channelNames)
+        private static List<ChannelInfo> GetActiveChannels(string[] channelIds)
         {
-            var activeChannels = new List<string>();
+            List<ChannelInfo> activeChannels = channelIds
+                .Where(id => _channelInfo.ContainsKey(id))
+                .Select(id => _channelInfo[id])
+                .Where(info => info.IsActive)
+                .ToList();
 
-            foreach (var channelName in channelNames)
+            if (activeChannels.Count == 0)
             {
-                if (_channelStates.TryGetValue(channelName, out ChannelInfo info) && info.IsActive)
+                activeChannels.Add(new ChannelInfo
                 {
-                    activeChannels.Add($"<color=#{info.Color}>[{channelName}]</color>");
-                }
-            }
-
-            if (!activeChannels.Any())
-            {
-                activeChannels.Add($"<color=#{ColorUtility.ToHtmlStringRGB(Color.red)}>[Unspecified]</color>");
+                    ModuleName = null,
+                    Name = "Unspecified",
+                    Color = ColorUtility.ToHtmlStringRGB(Color.red),
+                    IsActive = true
+                });
+                return activeChannels;
             }
 
             return activeChannels;
         }
 
-        private static string FormatLogMessage(string message, List<string> activeChannels)
+        private static string FormatLogMessage(string message, List<ChannelInfo> activeChannels)
         {
-            string combinedChannels = string.Join(", ", activeChannels);
-            return $"{combinedChannels} {message}";
+            const string format = "<color=#{0}>[{1}]</color>";
+            string combinedChannels = string.Join(", ",
+                activeChannels.Select(info => string.Format(format, info.Color, $"{info.ModuleName}.{info.Name}")));
+            return $"{combinedChannels}: {message}";
         }
 
         public static void SetChannelState(string channelName, bool isEnabled)
         {
-            if (_channelStates.ContainsKey(channelName))
+            if (_channelInfo.ContainsKey(channelName))
             {
-                _channelStates[channelName].IsActive = isEnabled;
+                _channelInfo[channelName].IsActive = isEnabled;
             }
         }
 
         private class ChannelInfo
         {
+            public string ModuleName;
             public string Name;
             public bool IsActive;
             public string Color;
