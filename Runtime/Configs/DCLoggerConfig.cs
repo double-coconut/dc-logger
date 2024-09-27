@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 namespace DCLogger.Runtime.Configs
@@ -7,51 +6,31 @@ namespace DCLogger.Runtime.Configs
     public class DCLoggerConfig : ScriptableObject
     {
         public List<ModuleConfig> moduleConfigs = new List<ModuleConfig>();
-
-        private Dictionary<string, List<ChannelState>> moduleChannelStates =
-            new Dictionary<string, List<ChannelState>>();
+        [HideInInspector] public List<ChannelState> channelStates = new List<ChannelState>();
 
         public void SetChannelState(string moduleName, string channelId, bool state)
         {
-            if (!moduleChannelStates.TryGetValue(moduleName, out List<ChannelState> channelState))
+            ChannelState channelState = channelStates.Find(channelState =>
+                channelState.ModuleName == moduleName && channelState.Id == channelId);
+            if (channelState == null)
             {
-                moduleChannelStates.Add(moduleName, new List<ChannelState>
-                {
-                    new ChannelState(channelId, state)
-                });
+                channelStates.Add(new ChannelState(moduleName, channelId, state));
                 return;
             }
 
-            ChannelState channel = channelState.Find(channel => channel.Id == channelId);
-            if (channel == null)
-            {
-                moduleChannelStates[moduleName].Add(new ChannelState(channelId, state));
-                return;
-            }
-
-            channel.Enabled = state;
+            channelState.Enabled = state;
         }
 
         public bool? GetChannelState(string moduleName, string channelId)
         {
-            if (!moduleChannelStates.TryGetValue(moduleName, out List<ChannelState> channelState))
-            {
-                return null;
-            }
-
-            ChannelState channel = channelState.Find(channel => channel.Id == channelId);
-
-            return channel?.Enabled;
+            ChannelState channelState = channelStates.Find(channelState =>
+                channelState.ModuleName == moduleName && channelState.Id == channelId);
+            return channelState?.Enabled;
         }
 
         public void RemoveChannel(string moduleName, string channelId)
         {
-            if (!moduleChannelStates.ContainsKey(moduleName))
-            {
-                return;
-            }
-
-            moduleChannelStates[moduleName].RemoveAll(channel => channel.Id == channelId);
+            channelStates.RemoveAll(channel => channel.ModuleName == moduleName && channel.Id == channelId);
         }
     }
 }

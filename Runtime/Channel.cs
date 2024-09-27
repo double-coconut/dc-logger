@@ -25,13 +25,15 @@ namespace DCLogger.Runtime
     [Serializable]
     public class ChannelState
     {
+        public string ModuleName;
         public string Id;
         public bool Enabled;
 
-        public ChannelState(string id, bool state)
+        public ChannelState(string moduleName, string id, bool enabled)
         {
+            ModuleName = moduleName;
             Id = id;
-            Enabled = state;
+            Enabled = enabled;
         }
     }
 }
