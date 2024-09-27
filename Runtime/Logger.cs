@@ -81,25 +81,25 @@ namespace DCLogger.Runtime
 
         private static List<ChannelInfo> GetActiveChannels(string[] channelIds)
         {
-            List<ChannelInfo> activeChannels = channelIds
+            List<ChannelInfo> channels = channelIds
                 .Where(id => _channelInfo.ContainsKey(id))
                 .Select(id => _channelInfo[id])
-                .Where(info => info.IsActive)
                 .ToList();
 
-            if (activeChannels.Count == 0)
+            if (channels.Count == 0)
             {
-                activeChannels.Add(new ChannelInfo
+                channels.Add(new ChannelInfo
                 {
-                    ModuleName = null,
+                    ModuleName = "null",
                     Name = "Unspecified",
                     Color = ColorUtility.ToHtmlStringRGB(Color.red),
                     IsActive = true
                 });
-                return activeChannels;
+                return channels;
             }
 
-            return activeChannels;
+            channels = channels.Where(info => info.IsActive).ToList();
+            return channels;
         }
 
         private static string FormatLogMessage(string message, List<ChannelInfo> activeChannels)
